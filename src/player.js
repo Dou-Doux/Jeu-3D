@@ -7,8 +7,9 @@ export class Player {
     this.scene = scene;
     this.world = world;
     this.radius = 0.7;
-    this.speed = 7;
-    this.sprintSpeed = 12;
+    this.speed = 12;
+    this.sprintSpeed = 22;
+    this.fastWalk = false; // toggled with F key
     this.yaw = Math.PI;     // facing direction (around Y)
     this.pitch = -0.15;     // camera vertical
     this.position = world.playerSpawn.clone();
@@ -61,7 +62,7 @@ export class Player {
     const moving = move.lengthSq() > 0.001;
     if (moving) {
       move.normalize();
-      const spd = input.sprint ? this.sprintSpeed : this.speed;
+      const spd = input.sprint ? this.sprintSpeed : (this.fastWalk ? this.speed * 1.6 : this.speed);
       this.position.x += move.x * spd * dt;
       this.position.z += move.z * spd * dt;
       // face movement direction

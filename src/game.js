@@ -59,6 +59,7 @@ export class Game {
     window.addEventListener('keydown', (e) => {
       if (map[e.code]) { this.input[map[e.code]] = true; }
       if (e.code === 'KeyE') this._tryInteract();
+      if (e.code === 'KeyF' && this.player) this.player.fastWalk = !this.player.fastWalk;
       if (e.code === 'Space') e.preventDefault();
     });
     window.addEventListener('keyup', (e) => {

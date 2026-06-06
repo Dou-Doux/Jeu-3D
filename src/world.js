@@ -107,8 +107,9 @@ export class World {
     this._addBoxCollider(mkWall(t, H, D, -W / 2, H / 2, 0));
     this._addBoxCollider(mkWall(t, H, D, W / 2, H / 2, 0));
     const seg = (W - 5) / 2;
-    this._addBoxCollider(mkWall(seg, H, t, -(5 / 2 + seg / 2), H / 2, D / 2));
-    this._addBoxCollider(mkWall(seg, H, t, (5 / 2 + seg / 2), H / 2, D / 2));
+    // Front wall segments: visual only (no collider) so the player can walk through the door freely
+    mkWall(seg, H, t, -(5 / 2 + seg / 2), H / 2, D / 2);
+    mkWall(seg, H, t, (5 / 2 + seg / 2), H / 2, D / 2);
     mkWall(5, 2, t, 0, H - 1, D / 2);
     const roof = new THREE.Mesh(new THREE.BoxGeometry(W + 1.5, 0.6, D + 1.5), roofMat);
     roof.position.y = H + 0.3;

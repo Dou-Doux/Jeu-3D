@@ -5,8 +5,9 @@ export class Player {
     this.scene = scene;
     this.world = world;
     this.radius = 0.7;
-    this.speed = 7;
-    this.sprintSpeed = 12;
+    this.speed = 12;
+    this.sprintSpeed = 22;
+    this.fastWalk = false;
     this.yaw = Math.PI;
     this.pitch = -0.15;
     this.position = world.playerSpawn.clone();
@@ -22,7 +23,6 @@ export class Player {
     const skin = new THREE.MeshLambertMaterial({ color: 0xe0b48c });
     const cloth = new THREE.MeshLambertMaterial({ color: 0x223344 });
     const dark = new THREE.MeshLambertMaterial({ color: 0x1a1f2a });
-
     const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.4, 0.6), cloth);
     body.position.y = 1.6;
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), skin);
@@ -59,7 +59,7 @@ export class Player {
     const moving = move.lengthSq() > 0.001;
     if (moving) {
       move.normalize();
-      const spd = input.sprint ? this.sprintSpeed : this.speed;
+      const spd = input.sprint ? this.sprintSpeed : (this.fastWalk ? this.speed * 1.6 : this.speed);
       this.position.x += move.x * spd * dt;
       this.position.z += move.z * spd * dt;
       const targetRot = Math.atan2(move.x, move.z);

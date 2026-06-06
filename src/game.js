@@ -59,6 +59,7 @@ export class Game {
     window.addEventListener('keydown', (e) => {
       if (map[e.code]) { this.input[map[e.code]] = true; }
       if (e.code === 'KeyE') this._tryInteract();
+      if (e.code === 'KeyF' && this.player) this.player.fastWalk = !this.player.fastWalk;
       if (e.code === 'Space') e.preventDefault();
     });
     window.addEventListener('keyup', (e) => {
@@ -79,9 +80,7 @@ export class Game {
   }
 
   start() {
-    if (this.world) {
-      this.scene.clear();
-    }
+    if (this.world) this.scene.clear();
     this.pursuers.forEach((p) => p.dispose());
     this.pursuers = [];
 
@@ -114,10 +113,7 @@ export class Game {
     if (this.state !== GameState.ON_FOOT) return;
     if (!this.hasObject && this.world.missionObject) {
       const d = this.player.position.distanceTo(this.world.missionObject.position);
-      if (d < 6) {
-        this._grabObject();
-        return;
-      }
+      if (d < 6) { this._grabObject(); return; }
     }
     if (this.hasObject) {
       const d = this.player.position.distanceTo(this.playerCar.position);
@@ -171,19 +167,13 @@ export class Game {
   update(dt) {
     this.t += dt;
     this.ui.update(dt);
-
-    if (this.state === GameState.ON_FOOT) {
-      this._updateOnFoot(dt);
-    } else if (this.state === GameState.IN_VEHICLE) {
-      this._updateVehicle(dt);
-    }
-
+    if (this.state === GameState.ON_FOOT) this._updateOnFoot(dt);
+    else if (this.state === GameState.IN_VEHICLE) this._updateVehicle(dt);
     if (this.world) this.world.update(dt, this.t);
   }
 
   _updateOnFoot(dt) {
     this.player.update(dt, this.input, this.camera);
-
     if (!this.hasObject && this.world.missionObject) {
       const d = this.player.position.distanceTo(this.world.missionObject.position);
       this.ui.setPrompt(d < 6 ? "Appuyez sur <b>E</b> pour recuperer l'objet" : null);
@@ -191,7 +181,6 @@ export class Game {
       const d = this.player.position.distanceTo(this.playerCar.position);
       this.ui.setPrompt(d < 8 ? '<b>E</b> pour monter dans la voiture' : null);
     }
-
     if (this.alarm) {
       this.alarmTime += dt;
       this.searchLevel = Math.min(100, this.searchLevel + dt * 3);
@@ -205,12 +194,9 @@ export class Game {
     this.playerCar.update(dt, this.world);
     this.ui.setSpeed(this.playerCar.speedKmh);
     this._updateVehicleCamera(dt);
-
     this.alarmTime += dt;
-
     this.searchLevel = Math.min(100, this.searchLevel + dt * 2.5);
     this.ui.setSearchLevel(this.searchLevel);
-
     if (!this.militarySpawned && this.alarmTime > 30) {
       this.militarySpawned = true;
       const base = this.playerCar.position.clone();
@@ -218,19 +204,15 @@ export class Game {
       this._spawnPursuer('military', base.clone().add(new THREE.Vector3(-8, 0, 60)));
       this.ui.triggerFlash();
     }
-
     this.pursuers.forEach((ai) => ai.update(dt, this.playerCar.position, this.world, this.t));
-
     const dist = this._nearestPursuerDist();
     this.ui.setEscape(this.escapeProgress, dist === Infinity ? 999 : dist);
-
     if (dist > 150 || this.pursuers.length === 0) {
       this.escapeProgress += dt;
     } else {
       this.escapeProgress = Math.max(0, this.escapeProgress - dt * 0.5);
     }
     if (this.escapeProgress >= 60) { this._win(); return; }
-
     if (dist < 10) {
       this.closeTime += dt;
       if (this.closeTime >= 5) { this._lose("Les forces de l'ordre vous ont rattrape."); return; }
@@ -247,7 +229,6 @@ export class Game {
     this.camera.position.lerp(desired, 1 - Math.pow(0.001, dt));
     const look = car.position.clone().add(dir.clone().multiplyScalar(6)).add(new THREE.Vector3(0, 1.5, 0));
     this.camera.lookAt(look);
-
     const speedFrac = Math.min(1, car.speedKmh / 170);
     const targetFov = this.baseFov + speedFrac * 22;
     this.camera.fov += (targetFov - this.camera.fov) * (1 - Math.pow(0.01, dt));

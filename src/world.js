@@ -82,6 +82,11 @@ export class World {
     const roofMat = new THREE.MeshLambertMaterial({ color: 0x7a3b2e });
     const floorMat = new THREE.MeshLambertMaterial({ color: 0x6b5a44 });
 
+    // Position and add to scene FIRST so updateMatrixWorld gives correct world coords
+    house.position.set(0, 0, -22);
+    this.scene.add(house);
+    this.house = house;
+
     const W = 22, D = 18, H = 7, t = 0.6;
     const floor = new THREE.Mesh(new THREE.BoxGeometry(W, 0.3, D), floorMat);
     floor.position.y = 0.15;
@@ -103,11 +108,6 @@ export class World {
     const roof = new THREE.Mesh(new THREE.BoxGeometry(W + 1.5, 0.6, D + 1.5), roofMat);
     roof.position.y = H + 0.3;
     house.add(roof);
-    this._addBoxCollider(mkWall(t, H, 8, 3, H / 2, -2));
-
-    house.position.set(0, 0, -22);
-    this.scene.add(house);
-    this.house = house;
 
     this.houseInteriorCenter = new THREE.Vector3(0, 0, -22);
 

@@ -114,14 +114,14 @@ export class Game {
     if (this.state !== GameState.ON_FOOT) return;
     if (!this.hasObject && this.world.missionObject) {
       const d = this.player.position.distanceTo(this.world.missionObject.position);
-      if (d < 4) {
+      if (d < 6) {
         this._grabObject();
         return;
       }
     }
     if (this.hasObject) {
       const d = this.player.position.distanceTo(this.playerCar.position);
-      if (d < 5) this._enterVehicle();
+      if (d < 8) this._enterVehicle();
     }
   }
 
@@ -186,10 +186,10 @@ export class Game {
 
     if (!this.hasObject && this.world.missionObject) {
       const d = this.player.position.distanceTo(this.world.missionObject.position);
-      this.ui.setPrompt(d < 4 ? "Appuyez sur <b>E</b> pour recuperer l'objet" : null);
+      this.ui.setPrompt(d < 6 ? "Appuyez sur <b>E</b> pour recuperer l'objet" : null);
     } else if (this.hasObject) {
       const d = this.player.position.distanceTo(this.playerCar.position);
-      this.ui.setPrompt(d < 5 ? '<b>E</b> pour monter dans la voiture' : null);
+      this.ui.setPrompt(d < 8 ? '<b>E</b> pour monter dans la voiture' : null);
     }
 
     if (this.alarm) {

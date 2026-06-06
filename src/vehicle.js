@@ -1,20 +1,16 @@
 import * as THREE from 'three';
 
-// Stylized car built from boxes. Used for the player car, gendarme cars and
-// military jeeps. Handles arcade driving physics for the player; AI control is
-// driven externally (see ai.js) by setting throttle/steer each frame.
 export class Vehicle {
   constructor(scene, opts = {}) {
     this.scene = scene;
-    this.type = opts.type || 'player'; // 'player' | 'gendarme' | 'military'
+    this.type = opts.type || 'player';
     this.position = (opts.position || new THREE.Vector3()).clone();
-    this.heading = opts.heading || 0;  // yaw in radians
-    this.speed = 0;                    // signed forward speed (m/s)
-    this.steer = 0;                    // current steering input [-1,1]
-    this.throttle = 0;                 // [-1,1]
+    this.heading = opts.heading || 0;
+    this.speed = 0;
+    this.steer = 0;
+    this.throttle = 0;
     this.handbrake = false;
 
-    // tuning
     this.maxSpeed = this.type === 'player' ? 48 : (this.type === 'military' ? 34 : 42);
     this.accel = this.type === 'player' ? 26 : 22;
     this.brakePower = 40;
@@ -59,7 +55,6 @@ export class Vehicle {
       g.add(cap);
     }
 
-    // wheels
     this.wheels = [];
     const wheelGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.45, 12);
     const offsets = [
@@ -76,7 +71,6 @@ export class Vehicle {
       this.wheels.push(w);
     });
 
-    // headlights / markers
     const lightMat = new THREE.MeshBasicMaterial({ color: 0xffffcc });
     [-0.7, 0.7].forEach((x) => {
       const hl = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.2), lightMat);
@@ -84,7 +78,6 @@ export class Vehicle {
       g.add(hl);
     });
 
-    // sirens for gendarme (flashing point lights)
     if (this.type === 'gendarme') {
       this.sirenRed = new THREE.PointLight(0xff2222, 0, 14);
       this.sirenRed.position.set(-0.5, 2.5, -0.3);
@@ -106,7 +99,6 @@ export class Vehicle {
     return g;
   }
 
-  // Player-controlled physics. input: {forward, back, left, right, handbrake}
   driveInput(input) {
     this.throttle = (input.forward ? 1 : 0) - (input.back ? 1 : 0);
     this.steer = (input.left ? 1 : 0) - (input.right ? 1 : 0);
@@ -114,13 +106,11 @@ export class Vehicle {
   }
 
   update(dt, world) {
-    // longitudinal
     if (this.throttle > 0) {
       this.speed += this.accel * this.throttle * dt;
     } else if (this.throttle < 0) {
-      this.speed += this.accel * this.throttle * dt; // reverse / brake
+      this.speed += this.accel * this.throttle * dt;
     } else {
-      // engine drag
       const sign = Math.sign(this.speed);
       this.speed -= sign * this.drag * dt * Math.max(2, Math.abs(this.speed) * 0.3);
       if (Math.sign(this.speed) !== sign) this.speed = 0;
@@ -132,14 +122,11 @@ export class Vehicle {
     }
     this.speed = Math.max(-this.maxSpeed * 0.4, Math.min(this.maxSpeed, this.speed));
 
-    // steering scales with speed; handbrake gives sharper drift turn
     const speedFactor = Math.min(1, Math.abs(this.speed) / 10);
     const turnMul = this.handbrake ? 1.7 : 1.0;
     this.heading += this.steer * this.turnRate * turnMul * speedFactor * dt * Math.sign(this.speed || 1);
 
-    // integrate position
     const dir = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
-    const prev = this.position.clone();
     this.position.x += dir.x * this.speed * dt;
     this.position.z += dir.z * this.speed * dt;
 
@@ -147,23 +134,20 @@ export class Vehicle {
       const before = this.position.clone();
       world.resolveCollision(this.position, 1.6);
       if (!before.equals(this.position)) {
-        this.speed *= 0.4; // bump
+        this.speed *= 0.4;
       }
     }
 
     this.mesh.position.copy(this.position);
     this.mesh.rotation.y = this.heading;
 
-    // rotate wheels
     const spin = this.speed * dt / 0.55;
     this.wheels.forEach((w) => { w.rotation.x += spin; });
-    // front wheels visual steer
     const fs = this.steer * 0.4;
     if (this.wheels[0]) this.wheels[0].rotation.y = fs;
     if (this.wheels[1]) this.wheels[1].rotation.y = fs;
   }
 
-  // siren flash
   flashSiren(t) {
     if (this.type !== 'gendarme') return;
     const on = Math.floor(t * 4) % 2 === 0;

@@ -1,7 +1,5 @@
 import * as THREE from 'three';
 
-// Third-person on-foot character with WASD movement relative to camera yaw,
-// pointer-lock mouse look, sprint, and AABB collision via world.
 export class Player {
   constructor(scene, world) {
     this.scene = scene;
@@ -9,8 +7,8 @@ export class Player {
     this.radius = 0.7;
     this.speed = 7;
     this.sprintSpeed = 12;
-    this.yaw = Math.PI;     // facing direction (around Y)
-    this.pitch = -0.15;     // camera vertical
+    this.yaw = Math.PI;
+    this.pitch = -0.15;
     this.position = world.playerSpawn.clone();
     this.velocity = new THREE.Vector3();
     this.active = false;
@@ -64,7 +62,6 @@ export class Player {
       const spd = input.sprint ? this.sprintSpeed : this.speed;
       this.position.x += move.x * spd * dt;
       this.position.z += move.z * spd * dt;
-      // face movement direction
       const targetRot = Math.atan2(move.x, move.z);
       this.mesh.rotation.y = targetRot;
     }
@@ -72,7 +69,6 @@ export class Player {
     this.position.y = 0;
     this.mesh.position.copy(this.position);
 
-    // walk bob on limbs
     this._t = (this._t || 0) + (moving ? dt * (input.sprint ? 14 : 9) : 0);
     const swing = moving ? Math.sin(this._t) * 0.6 : 0;
     this._limbs.lLeg.rotation.x = swing;

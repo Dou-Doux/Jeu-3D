@@ -1,5 +1,3 @@
-// Pure HTML/CSS overlay controller. Binds to elements already present in
-// index.html and exposes methods the game loop calls. No canvas drawing.
 export class UI {
   constructor() {
     this.el = (id) => document.getElementById(id);
@@ -22,9 +20,7 @@ export class UI {
     this._flashT = 0;
   }
 
-  onPlay(cb) {
-    this.el('playBtn').addEventListener('click', cb);
-  }
+  onPlay(cb) { this.el('playBtn').addEventListener('click', cb); }
   onRetry(cb) {
     this.el('retryWin').addEventListener('click', cb);
     this.el('retryLose').addEventListener('click', cb);
@@ -49,17 +45,9 @@ export class UI {
   }
 
   setObjective(text) { this.objText.textContent = text; }
-
-  setSearchLevel(pct) {
-    this.searchFill.style.width = Math.max(0, Math.min(100, pct)) + '%';
-  }
-
-  setSpeed(kmh) {
-    this.spdVal.textContent = Math.round(kmh);
-  }
-
+  setSearchLevel(pct) { this.searchFill.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
+  setSpeed(kmh) { this.spdVal.textContent = Math.round(kmh); }
   showSpeedo(v) { this.speedo.style.display = v ? 'block' : 'none'; }
-
   showEscapeTimer(v) { this.escapeTimer.style.display = v ? 'block' : 'none'; }
 
   setEscape(seconds, distance) {

@@ -1,13 +1,11 @@
 import * as THREE from 'three';
 
-// Builds the semi-rural environment: ground, roads, house, trees, streetlamps.
-// Exposes collision boxes (AABB) and useful spawn points.
 export class World {
   constructor(scene) {
     this.scene = scene;
-    this.colliders = [];      // array of THREE.Box3 for walls/buildings
+    this.colliders = [];
     this.streetLamps = [];
-    this.roadblocks = [];     // meshes added after alarm
+    this.roadblocks = [];
     this.house = null;
     this.missionObject = null;
     this.carSpawn = new THREE.Vector3(14, 0, 26);
@@ -53,7 +51,6 @@ export class World {
     road.rotation.z = rot;
     road.position.set(x, 0.02, z);
     this.scene.add(road);
-    // dashed center markings
     const dashMat = new THREE.MeshLambertMaterial({ color: 0xd8d27a });
     const count = Math.floor(l / 14);
     for (let i = 0; i < count; i++) {
@@ -67,9 +64,7 @@ export class World {
   }
 
   _roads() {
-    // main vertical road
     this._roadStrip(14, 1400, 0, 0, 0);
-    // horizontal crossroads
     this._roadStrip(14, 1400, 0, -120, Math.PI / 2);
     this._roadStrip(14, 1400, 0, 120, Math.PI / 2);
     this._roadStrip(14, 1400, 0, -360, Math.PI / 2);
@@ -88,7 +83,6 @@ export class World {
     const floorMat = new THREE.MeshLambertMaterial({ color: 0x6b5a44 });
 
     const W = 22, D = 18, H = 7, t = 0.6;
-    // floor
     const floor = new THREE.Mesh(new THREE.BoxGeometry(W, 0.3, D), floorMat);
     floor.position.y = 0.15;
     house.add(floor);
@@ -99,32 +93,24 @@ export class World {
       house.add(m);
       return m;
     };
-    // back wall
     this._addBoxCollider(mkWall(W, H, t, 0, H / 2, -D / 2));
-    // side walls
     this._addBoxCollider(mkWall(t, H, D, -W / 2, H / 2, 0));
     this._addBoxCollider(mkWall(t, H, D, W / 2, H / 2, 0));
-    // front wall split for a doorway in the middle (door width 5)
     const seg = (W - 5) / 2;
     this._addBoxCollider(mkWall(seg, H, t, -(5 / 2 + seg / 2), H / 2, D / 2));
     this._addBoxCollider(mkWall(seg, H, t, (5 / 2 + seg / 2), H / 2, D / 2));
-    // lintel above door
     mkWall(5, 2, t, 0, H - 1, D / 2);
-    // roof
     const roof = new THREE.Mesh(new THREE.BoxGeometry(W + 1.5, 0.6, D + 1.5), roofMat);
     roof.position.y = H + 0.3;
     house.add(roof);
-    // an interior dividing wall
     this._addBoxCollider(mkWall(t, H, 8, 3, H / 2, -2));
 
     house.position.set(0, 0, -22);
     this.scene.add(house);
     this.house = house;
 
-    // interior trigger zone (where the door is, in world space)
     this.houseInteriorCenter = new THREE.Vector3(0, 0, -22);
 
-    // mission object: glowing box deep inside
     const moMat = new THREE.MeshPhongMaterial({ color: 0x33ffcc, emissive: 0x18a07c, emissiveIntensity: 1.2 });
     const mo = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 1.4), moMat);
     mo.position.set(-5, 1.5, -28);
@@ -138,14 +124,13 @@ export class World {
   }
 
   _scenery() {
-    // trees
     const trunkMat = new THREE.MeshLambertMaterial({ color: 0x5a3a22 });
     const leafMat = new THREE.MeshLambertMaterial({ color: 0x2f6b2a });
     const rng = () => (Math.random() - 0.5);
     for (let i = 0; i < 80; i++) {
       const x = rng() * 600;
       const z = rng() * 700 - 150;
-      if (Math.abs(x) < 12) continue; // keep road clear
+      if (Math.abs(x) < 12) continue;
       const tree = new THREE.Group();
       const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 5, 6), trunkMat);
       trunk.position.y = 2.5;
@@ -155,7 +140,6 @@ export class World {
       tree.position.set(x, 0, z);
       this.scene.add(tree);
     }
-    // a few distant buildings flanking the road
     const bMat = [0x55606e, 0x6a5b52, 0x4f5a66];
     for (let i = 0; i < 24; i++) {
       const side = i % 2 === 0 ? -1 : 1;
@@ -192,7 +176,6 @@ export class World {
     }
   }
 
-  // Spawn roadblocks across the road after alarm.
   spawnRoadblocks() {
     const positions = [-180, -300, 80];
     positions.forEach((z) => {
@@ -213,7 +196,6 @@ export class World {
   }
 
   update(dt, t) {
-    // animate mission object glow & float
     if (this.missionObject) {
       this.missionObject.rotation.y += dt * 1.2;
       const y = this._missionBase + Math.sin(t * 2) * 0.25;
@@ -222,14 +204,11 @@ export class World {
     }
   }
 
-  // Simple horizontal AABB collision resolution for a moving point with radius.
   resolveCollision(pos, radius) {
     for (const box of this.colliders) {
-      // expand box by radius on X/Z
       const minX = box.min.x - radius, maxX = box.max.x + radius;
       const minZ = box.min.z - radius, maxZ = box.max.z + radius;
       if (pos.x > minX && pos.x < maxX && pos.z > minZ && pos.z < maxZ) {
-        // push out along the smallest penetration axis
         const dl = pos.x - minX, dr = maxX - pos.x;
         const dn = pos.z - minZ, df = maxZ - pos.z;
         const m = Math.min(dl, dr, dn, df);

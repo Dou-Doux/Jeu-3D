@@ -36,8 +36,8 @@ export class Game {
     this.alarmTime = 0;
     this.searchLevel = 0;
     this.militarySpawned = false;
-    this.escapeProgress = 0;     // seconds held at >150m
-    this.closeTime = 0;          // seconds pursuers within 10m
+    this.escapeProgress = 0;
+    this.closeTime = 0;
     this.t = 0;
 
     this.ui.showMenu();
@@ -65,7 +65,6 @@ export class Game {
       if (map[e.code]) this.input[map[e.code]] = false;
     });
 
-    // pointer lock + mouse look
     const canvas = document.querySelector('canvas');
     document.addEventListener('click', () => {
       if (this.state === GameState.ON_FOOT || this.state === GameState.IN_VEHICLE) {
@@ -80,7 +79,6 @@ export class Game {
   }
 
   start() {
-    // clean previous run
     if (this.world) {
       this.scene.clear();
     }
@@ -114,7 +112,6 @@ export class Game {
 
   _tryInteract() {
     if (this.state !== GameState.ON_FOOT) return;
-    // pick up mission object
     if (!this.hasObject && this.world.missionObject) {
       const d = this.player.position.distanceTo(this.world.missionObject.position);
       if (d < 4) {
@@ -122,7 +119,6 @@ export class Game {
         return;
       }
     }
-    // enter car
     if (this.hasObject) {
       const d = this.player.position.distanceTo(this.playerCar.position);
       if (d < 5) this._enterVehicle();
@@ -143,7 +139,6 @@ export class Game {
     this.alarmTime = 0;
     this.ui.triggerFlash();
     this.world.spawnRoadblocks();
-    // spawn initial gendarmes near the road behind the house
     this._spawnPursuer('gendarme', new THREE.Vector3(-6, 0, 60));
     this._spawnPursuer('gendarme', new THREE.Vector3(6, 0, 90));
   }
@@ -156,7 +151,6 @@ export class Game {
   _enterVehicle() {
     this.player.setActive(false);
     this.state = GameState.IN_VEHICLE;
-    // align car heading roughly toward escape (north, -z)
     this.playerCar.heading = Math.PI;
     this.ui.showSpeedo(true);
     this.ui.showEscapeTimer(true);
@@ -190,7 +184,6 @@ export class Game {
   _updateOnFoot(dt) {
     this.player.update(dt, this.input, this.camera);
 
-    // interaction prompts
     if (!this.hasObject && this.world.missionObject) {
       const d = this.player.position.distanceTo(this.world.missionObject.position);
       this.ui.setPrompt(d < 4 ? "Appuyez sur <b>E</b> pour recuperer l'objet" : null);
@@ -203,7 +196,6 @@ export class Game {
       this.alarmTime += dt;
       this.searchLevel = Math.min(100, this.searchLevel + dt * 3);
       this.ui.setSearchLevel(this.searchLevel);
-      // pursuers chase player on foot toward the car too
       this.pursuers.forEach((ai) => ai.update(dt, this.player.position, this.world, this.t));
     }
   }
@@ -216,11 +208,9 @@ export class Game {
 
     this.alarmTime += dt;
 
-    // search level rises with time
     this.searchLevel = Math.min(100, this.searchLevel + dt * 2.5);
     this.ui.setSearchLevel(this.searchLevel);
 
-    // military reinforcements after 30s of alarm
     if (!this.militarySpawned && this.alarmTime > 30) {
       this.militarySpawned = true;
       const base = this.playerCar.position.clone();
@@ -229,13 +219,11 @@ export class Game {
       this.ui.triggerFlash();
     }
 
-    // update pursuers
     this.pursuers.forEach((ai) => ai.update(dt, this.playerCar.position, this.world, this.t));
 
     const dist = this._nearestPursuerDist();
     this.ui.setEscape(this.escapeProgress, dist === Infinity ? 999 : dist);
 
-    // win condition: stay >150m for 60s (cumulative while far)
     if (dist > 150 || this.pursuers.length === 0) {
       this.escapeProgress += dt;
     } else {
@@ -243,10 +231,9 @@ export class Game {
     }
     if (this.escapeProgress >= 60) { this._win(); return; }
 
-    // lose condition: pursuers within 10m for 5s
     if (dist < 10) {
       this.closeTime += dt;
-      if (this.closeTime >= 5) { this._lose('Les forces de l\'ordre vous ont rattrape.'); return; }
+      if (this.closeTime >= 5) { this._lose("Les forces de l'ordre vous ont rattrape."); return; }
     } else {
       this.closeTime = Math.max(0, this.closeTime - dt);
     }
@@ -261,7 +248,6 @@ export class Game {
     const look = car.position.clone().add(dir.clone().multiplyScalar(6)).add(new THREE.Vector3(0, 1.5, 0));
     this.camera.lookAt(look);
 
-    // FOV shift for speed sensation
     const speedFrac = Math.min(1, car.speedKmh / 170);
     const targetFov = this.baseFov + speedFrac * 22;
     this.camera.fov += (targetFov - this.camera.fov) * (1 - Math.pow(0.01, dt));

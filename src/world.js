@@ -87,8 +87,12 @@ export class World {
     const roofMat = new THREE.MeshLambertMaterial({ color: 0x7a3b2e });
     const floorMat = new THREE.MeshLambertMaterial({ color: 0x6b5a44 });
 
+    // Position and add to scene FIRST so updateMatrixWorld gives correct world coords
+    house.position.set(0, 0, -22);
+    this.scene.add(house);
+    this.house = house;
+
     const W = 22, D = 18, H = 7, t = 0.6;
-    // floor
     const floor = new THREE.Mesh(new THREE.BoxGeometry(W, 0.3, D), floorMat);
     floor.position.y = 0.15;
     house.add(floor);
@@ -99,27 +103,16 @@ export class World {
       house.add(m);
       return m;
     };
-    // back wall
     this._addBoxCollider(mkWall(W, H, t, 0, H / 2, -D / 2));
-    // side walls
     this._addBoxCollider(mkWall(t, H, D, -W / 2, H / 2, 0));
     this._addBoxCollider(mkWall(t, H, D, W / 2, H / 2, 0));
-    // front wall split for a doorway in the middle (door width 5)
     const seg = (W - 5) / 2;
     this._addBoxCollider(mkWall(seg, H, t, -(5 / 2 + seg / 2), H / 2, D / 2));
     this._addBoxCollider(mkWall(seg, H, t, (5 / 2 + seg / 2), H / 2, D / 2));
-    // lintel above door
     mkWall(5, 2, t, 0, H - 1, D / 2);
-    // roof
     const roof = new THREE.Mesh(new THREE.BoxGeometry(W + 1.5, 0.6, D + 1.5), roofMat);
     roof.position.y = H + 0.3;
     house.add(roof);
-    // an interior dividing wall
-    this._addBoxCollider(mkWall(t, H, 8, 3, H / 2, -2));
-
-    house.position.set(0, 0, -22);
-    this.scene.add(house);
-    this.house = house;
 
     // interior trigger zone (where the door is, in world space)
     this.houseInteriorCenter = new THREE.Vector3(0, 0, -22);

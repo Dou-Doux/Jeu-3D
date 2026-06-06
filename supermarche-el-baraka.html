@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supermarché El Baraka</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#111; font-family:'Segoe UI',Arial,sans-serif; }
+  #c { display:block; width:100%; height:100%; }
+  .overlay { position:absolute; color:#fff; }
+  #hud {
+    top:10px; left:10px; background:rgba(15,15,25,0.82); padding:10px 14px;
+    border-radius:10px; font-size:14px; line-height:1.7; pointer-events:none;
+    border:1px solid rgba(255,255,255,0.12); box-shadow:0 4px 16px rgba(0,0,0,0.5);
+  }
+  #hud .title { font-weight:bold; font-size:16px; color:#ffd24a; }
+  #hint {
+    bottom:24px; left:50%; transform:translateX(-50%); background:rgba(10,10,20,0.8);
+    padding:8px 18px; border-radius:20px; font-size:15px; border:1px solid rgba(255,210,74,0.5);
+    pointer-events:none; transition:opacity .2s; min-width:120px; text-align:center;
+  }
+  #camLabel { top:10px; left:50%; transform:translateX(-50%); background:rgba(10,10,20,0.7);
+    padding:5px 14px; border-radius:14px; font-size:13px; pointer-events:none; }
+  #minimapWrap { bottom:10px; right:10px; background:rgba(15,15,25,0.82); padding:6px;
+    border-radius:8px; border:1px solid rgba(255,255,255,0.12); }
+  #minimap { display:block; border-radius:4px; }
+  .panel {
+    top:50%; left:50%; transform:translate(-50%,-50%); width:720px; max-width:94vw;
+    max-height:88vh; overflow:auto; background:rgba(18,20,32,0.97); border-radius:14px;
+    border:1px solid rgba(255,210,74,0.4); box-shadow:0 10px 40px rgba(0,0,0,0.7);
+    display:none; padding:0;
+  }
+  .panel.show { display:block; }
+  .panel h2 { padding:14px 20px; color:#ffd24a; font-size:20px; border-bottom:1px solid rgba(255,255,255,0.12); }
+  .tabs { display:flex; gap:4px; padding:10px 16px 0; flex-wrap:wrap; }
+  .tab { padding:8px 14px; background:rgba(255,255,255,0.08); border-radius:8px 8px 0 0; cursor:pointer; font-size:14px; }
+  .tab.active { background:rgba(255,210,74,0.22); color:#ffd24a; font-weight:bold; }
+  .tabcontent { display:none; padding:18px 22px; }
+  .tabcontent.active { display:block; }
+  .row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.07); gap:10px; }
+  .btn { background:#2e7d32; color:#fff; border:none; padding:7px 14px; border-radius:7px; cursor:pointer; font-size:13px; }
+  .btn:hover { filter:brightness(1.15); }
+  .btn.alt { background:#1565c0; }
+  .btn.warn { background:#c62828; }
+  .bar { height:14px; background:rgba(255,255,255,0.12); border-radius:7px; overflow:hidden; flex:1; margin:0 10px; }
+  .bar > div { height:100%; background:linear-gradient(90deg,#43a047,#9ccc65); }
+  .chartbar { display:flex; align-items:flex-end; gap:10px; height:140px; margin-top:14px; }
+  .chartbar .cb { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; }
+  .chartbar .cb .fill { width:100%; background:linear-gradient(180deg,#ffd24a,#f57f17); border-radius:4px 4px 0 0; }
+  .chartbar .cb span { font-size:11px; margin-top:4px; text-align:center; }
+  .camGrid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .camThumb { background:#222; border:2px solid #444; border-radius:8px; height:90px; display:flex;
+    align-items:center; justify-content:center; flex-direction:column; cursor:pointer; font-size:13px; position:relative; }
+  .camThumb:hover { border-color:#ffd24a; }
+  .camThumb .rec { position:absolute; top:6px; right:8px; color:#ff5252; font-size:11px; }
+  .closeX { position:absolute; top:12px; right:16px; cursor:pointer; font-size:22px; color:#fff; }
+  #sales { top:50%; left:50%; transform:translate(-50%,-50%); width:420px; background:rgba(18,20,32,0.97);
+    border-radius:14px; border:1px solid rgba(255,210,74,0.4); display:none; padding:20px; }
+  #sales.show { display:block; }
+  #sales h2 { color:#ffd24a; margin-bottom:12px; }
+  .small { font-size:12px; color:#aaa; }
+  #loading { position:absolute; inset:0; background:#111; color:#ffd24a; display:flex; align-items:center;
+    justify-content:center; font-size:22px; z-index:50; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="loading">Chargement de Supermarché El Baraka...</div>
+
+<div id="hud" class="overlay">
+  <div class="title">🏪 Supermarché El Baraka</div>
+  <div>💰 Caisse: <span id="hudMoney">50000</span> DA</div>
+  <div>📦 Stock: <span id="hudStock">100</span>%</div>
+  <div>👥 Clients: <span id="hudClients">0</span></div>
+  <div>🕐 <span id="hudTime">08:00</span></div>
+</div>
+
+<div id="camLabel" class="overlay">Caméra: 3e personne</div>
+<div id="hint" class="overlay" style="opacity:0">&nbsp;</div>
+
+<div id="minimapWrap" class="overlay">
+  <canvas id="minimap" width="150" height="150"></canvas>
+</div>
+
+<!-- Sales UI -->
+<div id="sales" class="overlay">
+  <span class="closeX" id="salesClose">×</span>
+  <h2>🛒 Tenir la caisse</h2>
+  <div id="salesBody">Aucun client en attente.</div>
+</div>
+
+<!-- Management panel -->
+<div id="panel" class="panel overlay">
+  <span class="closeX" id="panelClose">×</span>
+  <h2 id="panelTitle">💻 Gestion — El Baraka</h2>
+  <div class="tabs">
+    <div class="tab active" data-tab="stats">Statistiques</div>
+    <div class="tab" data-tab="stock">Stock</div>
+    <div class="tab" data-tab="emp">Employés</div>
+    <div class="tab" data-tab="cam">Caméras</div>
+  </div>
+  <div class="tabcontent active" id="tab-stats"></div>
+  <div class="tabcontent" id="tab-stock"></div>
+  <div class="tabcontent" id="tab-emp"></div>
+  <div class="tabcontent" id="tab-cam"></div>
+</div>
+
+<!-- Employee info card -->
+<div id="empCard" class="panel overlay" style="width:360px">
+  <span class="closeX" id="empCardClose">×</span>
+  <h2 id="empCardTitle">Employé</h2>
+  <div class="tabcontent active" id="empCardBody"></div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.128.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+/* ============================ Helpers ============================ */
+function makeCanvasTexture(w,h,draw){
+  const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+  const ctx=cv.getContext('2d'); draw(ctx,w,h);
+  const t=new THREE.CanvasTexture(cv); t.needsUpdate=true; return t;
+}
+function floorTexture(){
+  return makeCanvasTexture(256,256,(ctx,w,h)=>{
+    ctx.fillStyle='#cfc9bb'; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='#a8a293'; ctx.lineWidth=3;
+    for(let i=0;i<=4;i++){ const p=i*64;
+      ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,h);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(0,p);ctx.lineTo(w,p);ctx.stroke(); }
+    for(let i=0;i<300;i++){ ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.05})`;
+      ctx.fillRect(Math.random()*w,Math.random()*h,2,2); }
+  });
+}
+function labelTexture(text,bg,fg){
+  return makeCanvasTexture(512,128,(ctx,w,h)=>{
+    ctx.fillStyle=bg||'#222'; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='#fff'; ctx.lineWidth=6; ctx.strokeRect(4,4,w-8,h-8);
+    ctx.fillStyle=fg||'#fff'; ctx.font='bold 60px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(text,w/2,h/2);
+  });
+}
+function signTexture(){
+  return makeCanvasTexture(1024,256,(ctx,w,h)=>{
+    const g=ctx.createLinearGradient(0,0,w,0); g.addColorStop(0,'#0a5e2a'); g.addColorStop(1,'#0e8a3e');
+    ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+    ctx.fillStyle='#ffd24a'; ctx.font='bold 90px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('Supermarché El Baraka',w/2,h/2);
+  });
+}
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ============================ Globals ============================ */
+let scene,renderer,clock;
+const canvas=document.getElementById('c');
+
+/* ============================ Economy ============================ */
+const Economy={
+  money:50000,
+  revenueToday:0,
+  customersServed:0,
+  prices:{Pain:20,Lait:120,Jus:150,Chocolat:80,Fromage:350,Légumes:60},
+  categories:['Fruits&Légumes','Pain','Boissons','Produits frais','Hygiène','Sucreries'],
+  catSales:[0,0,0,0,0,0],
+  stock:{ 'Fruits&Légumes':100,'Pain':100,'Boissons':100,'Produits frais':100,'Hygiène':100,'Sucreries':100 },
+  pendingOrders:[], // {cat,time}
+  salaries:{Ahmed:1500,Mourad:1500,Karim:2000,Yanis:1200,Samir:1400,Nadir:1600},
+  productName(){ const k=Object.keys(this.prices); return k[Math.floor(Math.random()*k.length)]; },
+  catFor(prod){ const m={Pain:'Pain',Lait:'Produits frais',Jus:'Boissons',Chocolat:'Sucreries',Fromage:'Produits frais',Légumes:'Fruits&Légumes'}; return m[prod]; },
+  sell(basket){
+    let total=0;
+    basket.forEach(p=>{ total+=this.prices[p];
+      const ci=this.categories.indexOf(this.catFor(p)); if(ci>=0) this.catSales[ci]++;
+      const c=this.catFor(p); this.stock[c]=clamp(this.stock[c]-2,0,100);
+    });
+    this.money+=total; this.revenueToday+=total; this.customersServed++;
+    return total;
+  },
+  order(cat){
+    const cost=4000;
+    if(this.money<cost) return false;
+    this.money-=cost;
+    this.pendingOrders.push({cat,time:60});
+    return true;
+  },
+  payDaySalaries(){ let t=0; for(const k in this.salaries) t+=this.salaries[k]; this.money-=t; return t; },
+  avgStock(){ let s=0; for(const k in this.stock) s+=this.stock[k]; return Math.round(s/6); },
+  bestSeller(){ let mi=0; for(let i=1;i<6;i++) if(this.catSales[i]>this.catSales[mi]) mi=i;
+    return this.catSales[mi]>0?this.categories[mi]:'—'; },
+  update(dt){
+    for(let i=this.pendingOrders.length-1;i>=0;i--){
+      this.pendingOrders[i].time-=dt;
+      if(this.pendingOrders[i].time<=0){ this.stock[this.pendingOrders[i].cat]=100; this.pendingOrders.splice(i,1); }
+    }
+  }
+};
+
+/* ============================ Game time ============================ */
+const GameTime={ minutes:8*60, speed:60 /* game-min per real-sec */, day:1,
+  update(dt){
+    const prev=this.minutes;
+    this.minutes+=dt*this.speed;
+    if(this.minutes>=24*60){ this.minutes-=24*60; this.day++; Economy.payDaySalaries();
+      Economy.revenueToday=0; Economy.customersServed=0; Economy.catSales=[0,0,0,0,0,0]; }
+  },
+  str(){ const m=Math.floor(this.minutes); const h=Math.floor(m/60)%24; const mm=m%60;
+    return String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0'); }
+};
+
+/* ============================ Store (build world) ============================ */
+const colliders=[]; // {min:{x,z}, max:{x,z}}
+function addCollider(x,z,sx,sz){ colliders.push({minx:x-sx/2,maxx:x+sx/2,minz:z-sz/2,maxz:z+sz/2}); }
+
+const Store={
+  W:50, D:60, aisles:[], shelves:[], checkouts:[], interactables:[], doorL:null,doorR:null,
+  build(){
+    // Floor
+    const ft=floorTexture(); ft.wrapS=ft.wrapT=THREE.RepeatWrapping; ft.repeat.set(this.W/4,this.D/4);
+    const floor=new THREE.Mesh(new THREE.PlaneGeometry(this.W,this.D),
+      new THREE.MeshStandardMaterial({map:ft}));
+    floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+
+    // Exterior ground (delivery dock area)
+    const ground=new THREE.Mesh(new THREE.PlaneGeometry(this.W,30),
+      new THREE.MeshStandardMaterial({color:0x555550}));
+    ground.rotation.x=-Math.PI/2; ground.position.set(0,-0.01,-this.D/2-15); scene.add(ground);
+
+    const wallMat=new THREE.MeshStandardMaterial({color:0xe8e4d8});
+    const wallH=8;
+    const mkWall=(x,z,w,d)=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(w,wallH,d),wallMat);
+      m.position.set(x,wallH/2,z); m.castShadow=m.receiveShadow=true; scene.add(m); addCollider(x,z,w,d); };
+    // Back wall (with delivery gap)
+    mkWall(-this.W/2+0.1,0,0.5,this.D); // left
+    mkWall(this.W/2-0.1,0,0.5,this.D); // right
+    // Back wall split for delivery door (gap in middle)
+    mkWall(-13,-this.D/2+0.1,this.W-26,0.5);
+    mkWall(this.W/2-3.5,-this.D/2+0.1,7,0.5);
+    mkWall(-this.W/2+3.5,-this.D/2+0.1,7,0.5);
+    // Front wall split for entrance (gap in middle)
+    mkWall(-13,this.D/2-0.1,this.W-26,0.5);
+    mkWall(this.W/2-9,this.D/2-0.1,18,0.5);
+    mkWall(-this.W/2+9,this.D/2-0.1,18,0.5);
+
+    // Roof (removable)
+    this.roof=new THREE.Mesh(new THREE.BoxGeometry(this.W,0.3,this.D),
+      new THREE.MeshStandardMaterial({color:0x3a3a44,transparent:true,opacity:0.55}));
+    this.roof.position.set(0,wallH,0); scene.add(this.roof);
+
+    // Entrance sign
+    const sign=new THREE.Mesh(new THREE.PlaneGeometry(16,4),
+      new THREE.MeshBasicMaterial({map:signTexture()}));
+    sign.position.set(0,6,this.D/2-0.2); scene.add(sign);
+
+    // Sliding glass doors
+    const glassMat=new THREE.MeshStandardMaterial({color:0xaee0ff,transparent:true,opacity:0.4});
+    this.doorL=new THREE.Mesh(new THREE.BoxGeometry(3,5,0.2),glassMat);
+    this.doorR=new THREE.Mesh(new THREE.BoxGeometry(3,5,0.2),glassMat);
+    this.doorL.position.set(-2,2.5,this.D/2-0.4);
+    this.doorR.position.set(2,2.5,this.D/2-0.4);
+    scene.add(this.doorL,this.doorR);
+
+    // Delivery door (back)
+    const dDoor=new THREE.Mesh(new THREE.BoxGeometry(6,5,0.3),
+      new THREE.MeshStandardMaterial({color:0x884422}));
+    dDoor.position.set(0,2.5,-this.D/2+0.3); scene.add(dDoor);
+
+    this.buildLights(wallH);
+    this.buildEntrance();
+    this.buildAisles();
+    this.buildCheckouts();
+    this.buildOffice();
+    this.buildStockroom();
+    this.buildDelivery();
+  },
+  buildLights(wallH){
+    scene.add(new THREE.AmbientLight(0xffffff,0.4));
+    const dir=new THREE.DirectionalLight(0xffffff,0.7);
+    dir.position.set(20,40,20); dir.castShadow=true;
+    dir.shadow.camera.left=-40;dir.shadow.camera.right=40;dir.shadow.camera.top=40;dir.shadow.camera.bottom=-40;
+    dir.shadow.mapSize.set(1024,1024); scene.add(dir);
+    // Ceiling neon fixtures
+    for(let x=-15;x<=15;x+=15) for(let z=-20;z<=20;z+=13.3){
+      const fix=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,4,8),
+        new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xfff2cc,emissiveIntensity:1}));
+      fix.rotation.z=Math.PI/2; fix.position.set(x,wallH-0.4,z); scene.add(fix);
+      const pl=new THREE.PointLight(0xfff4d6,0.5,30); pl.position.set(x,wallH-1,z); scene.add(pl);
+    }
+  },
+  buildEntrance(){
+    // Cart rack with 5 carts
+    for(let i=0;i<5;i++){
+      const cart=new THREE.Group();
+      const body=new THREE.Mesh(new THREE.BoxGeometry(1,0.8,1.4),
+        new THREE.MeshStandardMaterial({color:0xcccccc,wireframe:false}));
+      body.position.y=0.6; cart.add(body);
+      const handle=new THREE.Mesh(new THREE.BoxGeometry(1,0.1,0.1),
+        new THREE.MeshStandardMaterial({color:0x888888}));
+      handle.position.set(0,1.1,0.7); cart.add(handle);
+      cart.position.set(-8+i*0.5,0,this.D/2-5);
+      scene.add(cart);
+    }
+    this.interactables.push({type:'cart',x:-7,z:this.D/2-5,label:'Caddies'});
+  },
+  buildAisles(){
+    const aisleDefs=[
+      {name:'Fruits&Légumes',color:0x2e7d32,x:-15,z:14},
+      {name:'Pain',color:0x8d5524,x:0,z:14},
+      {name:'Boissons',color:0x1565c0,x:15,z:14},
+      {name:'Produits frais',color:0xeeeeee,x:-15,z:-2},
+      {name:'Hygiène',color:0xffffff,x:0,z:-2},
+      {name:'Sucreries',color:0xf9a825,x:15,z:-2},
+    ];
+    const prodColors=[0xff5252,0xffeb3b,0x66bb6a,0x42a5f5,0xab47bc,0xff9800];
+    aisleDefs.forEach(a=>{
+      this.aisles.push(a);
+      // two shelf units facing each other
+      for(const off of [-2.2,2.2]){
+        const shelf=new THREE.Group();
+        const frame=new THREE.Mesh(new THREE.BoxGeometry(6,3,1),
+          new THREE.MeshStandardMaterial({color:a.color}));
+        frame.position.y=1.5; frame.castShadow=true; shelf.add(frame);
+        // products
+        for(let r=0;r<3;r++) for(let cc=0;cc<5;cc++){
+          const pb=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.6,0.5),
+            new THREE.MeshStandardMaterial({color:prodColors[(r*5+cc)%6]}));
+          pb.position.set(-2.2+cc*1.1, 0.6+r*0.9, off>0?-0.45:0.45);
+          shelf.add(pb);
+        }
+        shelf.position.set(a.x,0,a.z+off);
+        scene.add(shelf);
+        addCollider(a.x,a.z+off,6,1);
+        this.shelves.push({x:a.x,z:a.z+off,name:a.name});
+      }
+      // aisle label sprite
+      const lbl=new THREE.Mesh(new THREE.PlaneGeometry(6,1.5),
+        new THREE.MeshBasicMaterial({map:labelTexture(a.name,'#16301f','#ffd24a'),transparent:true}));
+      lbl.position.set(a.x,4,a.z); scene.add(lbl);
+      this.interactables.push({type:'shelf',x:a.x,z:a.z,label:'Remplir le rayon ('+a.name+')',cat:a.name});
+    });
+  },
+  buildCheckouts(){
+    for(let i=0;i<3;i++){
+      const x=-9+i*9;
+      const z=this.D/2-13;
+      const belt=new THREE.Mesh(new THREE.BoxGeometry(2,1,5),
+        new THREE.MeshStandardMaterial({color:0x37474f}));
+      belt.position.set(x,0.5,z); belt.castShadow=true; scene.add(belt);
+      addCollider(x,z,2,5);
+      const lbl=new THREE.Mesh(new THREE.PlaneGeometry(3,1),
+        new THREE.MeshBasicMaterial({map:labelTexture('Caisse '+(i+1),'#222','#fff'),transparent:true}));
+      lbl.position.set(x,3,z); scene.add(lbl);
+      const co={index:i,x,z,queue:[],queueX:x, queueZbase:z+4};
+      this.checkouts.push(co);
+      this.interactables.push({type:'checkout',x,z,label:'Tenir la caisse '+(i+1),checkout:co});
+    }
+  },
+  buildOffice(){
+    const ox=this.W/2-6, oz=-this.D/2+6;
+    // office walls (two partitions)
+    const wm=new THREE.MeshStandardMaterial({color:0xb0a890});
+    const w1=new THREE.Mesh(new THREE.BoxGeometry(0.3,4,10),wm); w1.position.set(ox-5,2,oz); scene.add(w1); addCollider(ox-5,oz,0.3,10);
+    const w2=new THREE.Mesh(new THREE.BoxGeometry(12,4,0.3),wm); w2.position.set(ox-1,2,oz+5); scene.add(w2); addCollider(ox-1,oz+5,12,0.3);
+    // desk
+    const desk=new THREE.Mesh(new THREE.BoxGeometry(3,1.2,1.5),
+      new THREE.MeshStandardMaterial({color:0x6d4c41})); desk.position.set(ox,0.6,oz); scene.add(desk); addCollider(ox,oz,3,1.5);
+    // computer
+    const screen=new THREE.Mesh(new THREE.BoxGeometry(1.4,0.9,0.1),
+      new THREE.MeshStandardMaterial({color:0x111122,emissive:0x2244aa,emissiveIntensity:0.8}));
+    screen.position.set(ox,1.8,oz-0.4); scene.add(screen);
+    this.interactables.push({type:'computer',x:ox,z:oz+1.5,label:'Ordinateur de gestion'});
+  },
+  buildStockroom(){
+    const sx=-this.W/2+8, sz=-this.D/2+8;
+    // pallets + cartons
+    for(let i=0;i<4;i++){
+      const pallet=new THREE.Mesh(new THREE.BoxGeometry(3,0.4,2),
+        new THREE.MeshStandardMaterial({color:0x8d6e63}));
+      pallet.position.set(sx+(i%2)*4,0.2,sz+Math.floor(i/2)*3); scene.add(pallet); addCollider(pallet.position.x,pallet.position.z,3,2);
+      for(let k=0;k<3;k++){
+        const box=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),
+          new THREE.MeshStandardMaterial({color:0xc19a6b}));
+        box.position.set(pallet.position.x-0.8+k*0.9,0.9,pallet.position.z); scene.add(box);
+      }
+    }
+    const lbl=new THREE.Mesh(new THREE.PlaneGeometry(4,1),
+      new THREE.MeshBasicMaterial({map:labelTexture('Réserve','#333','#fff'),transparent:true}));
+    lbl.position.set(sx+2,4,sz); scene.add(lbl);
+    this.stockroomPos={x:sx+2,z:sz+3};
+  },
+  buildDelivery(){
+    const dz=-this.D/2-8;
+    // ramp
+    const ramp=new THREE.Mesh(new THREE.BoxGeometry(6,0.5,5),
+      new THREE.MeshStandardMaterial({color:0x666666}));
+    ramp.position.set(0,0.25,-this.D/2-3); scene.add(ramp);
+    // truck
+    const truck=new THREE.Group();
+    const cargo=new THREE.Mesh(new THREE.BoxGeometry(5,4,9),
+      new THREE.MeshStandardMaterial({color:0xcc3333})); cargo.position.set(0,2.5,0); truck.add(cargo);
+    const cab=new THREE.Mesh(new THREE.BoxGeometry(5,3,3),
+      new THREE.MeshStandardMaterial({color:0x2255aa})); cab.position.set(0,2,6); truck.add(cab);
+    for(const wx of [-2.4,2.4]) for(const wz of [-2.5,2.5,6]){
+      const wheel=new THREE.Mesh(new THREE.CylinderGeometry(1,1,0.6,12),
+        new THREE.MeshStandardMaterial({color:0x111111})); wheel.rotation.z=Math.PI/2;
+      wheel.position.set(wx,1,wz); truck.add(wheel);
+    }
+    truck.position.set(0,0,dz-4); scene.add(truck);
+    this.deliveryPos={x:0,z:-this.D/2-3};
+    this.interactables.push({type:'delivery',x:0,z:-this.D/2+2,label:'Gérer livraison'});
+  },
+  // collision check: returns true if position blocked
+  blocked(x,z,r=0.5){
+    if(x<-this.W/2+1||x>this.W/2-1) {
+      // allow outside through delivery gap behind
+      if(!(z< -this.D/2 && Math.abs(x)<3)) return true;
+    }
+    for(const c of colliders){
+      if(x>c.minx-r&&x<c.maxx+r&&z>c.minz-r&&z<c.maxz+r) return true;
+    }
+    return false;
+  }
+};
+
+/* ============================ Character base ============================ */
+function buildCharacter(color){
+  const g=new THREE.Group();
+  const mat=new THREE.MeshStandardMaterial({color});
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.45,1.4,12),mat);
+  body.position.y=1.1; body.castShadow=true; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.35,12,12),
+    new THREE.MeshStandardMaterial({color:0xd9a066})); head.position.y=2.1; head.castShadow=true; g.add(head);
+  const armMat=mat;
+  const armL=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,1,8),armMat);
+  armL.position.set(-0.55,1.3,0); g.add(armL);
+  const armR=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,1,8),armMat);
+  armR.position.set(0.55,1.3,0); g.add(armR);
+  g.userData.body=body; g.userData.armL=armL; g.userData.armR=armR;
+  return g;
+}
+
+/* ============================ Player ============================ */
+const Player={
+  mesh:null, x:Store.W/2-10, z:-Store.D/2+10, angle:0, role:null, speed:8,
+  build(){ this.mesh=buildCharacter(0xffc107); this.mesh.position.set(this.x,0,this.z); scene.add(this.mesh); },
+  update(dt,keys){
+    let moved=false;
+    if(keys['ArrowLeft']) this.angle+=2*dt;
+    if(keys['ArrowRight']) this.angle-=2*dt;
+    let fwd=0;
+    if(keys['ArrowUp']) fwd=1;
+    if(keys['ArrowDown']) fwd=-1;
+    if(fwd!==0){
+      const nx=this.x - Math.sin(this.angle)*this.speed*dt*fwd;
+      const nz=this.z - Math.cos(this.angle)*this.speed*dt*fwd;
+      if(!Store.blocked(nx,this.z)) this.x=nx;
+      if(!Store.blocked(this.x,nz)) this.z=nz;
+      moved=true;
+    }
+    this.mesh.position.set(this.x,0,this.z);
+    this.mesh.rotation.y=this.angle;
+    if(moved){ const t=performance.now()*0.01;
+      this.mesh.userData.armL.rotation.x=Math.sin(t)*0.6;
+      this.mesh.userData.armR.rotation.x=-Math.sin(t)*0.6; }
+  }
+};
+
+/* ============================ Employees ============================ */
+const employees=[];
+class Employee{
+  constructor(name,role,color,home,salary){
+    this.name=name; this.role=role; this.color=color; this.salary=salary;
+    this.home=home; this.x=home.x; this.z=home.z; this.target=null;
+    this.timer=0; this.phase=0; this.status='Au poste'; this.replaced=false;
+    this.mesh=buildCharacter(color); this.mesh.position.set(this.x,0,this.z); scene.add(this.mesh);
+    this.extra=null;
+    if(role==='Nettoyage'){ // broom
+      const broom=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.6,6),
+        new THREE.MeshStandardMaterial({color:0x8d6e63}));
+      broom.rotation.z=0.5; broom.position.set(0.7,0.8,0.4); this.mesh.add(broom);
+    }
+  }
+  moveTo(tx,tz,dt,speed=2.5){
+    const dx=tx-this.x, dz=tz-this.z; const d=Math.hypot(dx,dz);
+    if(d<0.3) return true;
+    const nx=this.x+dx/d*speed*dt, nz=this.z+dz/d*speed*dt;
+    if(!Store.blocked(nx,this.z,0.6)) this.x=nx;
+    if(!Store.blocked(this.x,nz,0.6)) this.z=nz;
+    this.mesh.rotation.y=Math.atan2(-(dx),-(dz))+Math.PI;
+    const t=performance.now()*0.01;
+    this.mesh.userData.armL.rotation.x=Math.sin(t)*0.5;
+    this.mesh.userData.armR.rotation.x=-Math.sin(t)*0.5;
+    return false;
+  }
+  update(dt){
+    if(this.replaced){ this.mesh.visible=false; return; }
+    this.mesh.visible=true;
+    this.timer+=dt;
+    switch(this.role){
+      case 'Caissier':
+        // idle bob
+        this.mesh.position.y=Math.sin(performance.now()*0.002)*0.03;
+        break;
+      case 'Responsable rayons': {
+        // patrol aisles, restock every 15s
+        if(!this.patrolTarget||this.timer>this.patrolDur){
+          const a=Store.aisles[Math.floor(Math.random()*Store.aisles.length)];
+          this.patrolTarget={x:a.x+ (Math.random()<0.5?-3.5:3.5),z:a.z}; this.timer=0; this.patrolDur=8+Math.random()*4;
+        }
+        const arr=this.moveTo(this.patrolTarget.x,this.patrolTarget.z,dt);
+        if(arr){ this.mesh.userData.body.rotation.y=Math.sin(performance.now()*0.005)*0.5; }
+        break; }
+      case 'Nettoyage': {
+        if(!this.loop) this.loop=[{x:-15,z:14},{x:15,z:14},{x:15,z:-2},{x:-15,z:-2}], this.li=0;
+        const tgt=this.loop[this.li];
+        if(this.moveTo(tgt.x,tgt.z,dt,1.5)) this.li=(this.li+1)%this.loop.length;
+        break; }
+      case 'Livraisons': {
+        // alternate dock <-> stockroom every 30s
+        if(this.timer>15){ this.phase=1-this.phase; this.timer=0; }
+        const tgt=this.phase===0?Store.deliveryPos:Store.stockroomPos;
+        this.moveTo(tgt.x,tgt.z,dt,2.5);
+        break; }
+      case 'Sécurité': {
+        if(!this.patrol) this.patrol=[{x:0,z:Store.D/2-6},{x:0,z:Store.D/2-13},{x:0,z:-5},{x:0,z:Store.D/2-13}], this.pi=0;
+        const tgt=this.patrol[this.pi];
+        if(this.moveTo(tgt.x,tgt.z,dt,1.8)) this.pi=(this.pi+1)%this.patrol.length;
+        break; }
+    }
+    this.mesh.position.x=this.x; this.mesh.position.z=this.z;
+    if(this.role==='Caissier') this.mesh.position.x=this.x;
+  }
+}
+function buildEmployees(){
+  employees.push(new Employee('Ahmed','Caissier',0x1565c0,{x:Store.checkouts[0].x-2,z:Store.checkouts[0].z},1500));
+  employees[0].role='Caissier'; employees[0].caisse=0;
+  employees.push(new Employee('Mourad','Caissier',0x1976d2,{x:Store.checkouts[1].x-2,z:Store.checkouts[1].z},1500));
+  employees[1].caisse=1;
+  employees.push(new Employee('Karim','Responsable rayons',0xff9800,{x:0,z:6},2000));
+  employees.push(new Employee('Yanis','Nettoyage',0xeeeeee,{x:-15,z:14},1200));
+  employees.push(new Employee('Samir','Livraisons',0x6d4c41,{x:0,z:-20},1400));
+  employees.push(new Employee('Nadir','Sécurité',0x222222,{x:0,z:Store.D/2-8},1600));
+}
+
+/* ============================ Customers ============================ */
+const customers=[];
+let spawnTimer=4, nextSpawn=8;
+class Customer{
+  constructor(){
+    const g=0.55+Math.random()*0.3; this.color=new THREE.Color(g,g*0.95,g*0.85).getHex();
+    this.mesh=buildCharacter(this.color);
+    this.x=2+Math.random()*2; this.z=Store.D/2-2;
+    this.mesh.position.set(this.x,0,this.z); scene.add(this.mesh);
+    this.state='ENTRER';
+    this.basket=[]; const n=2+Math.floor(Math.random()*5);
+    for(let i=0;i<n;i++) this.basket.push(Economy.productName());
+    this.aislesToVisit=[]; const na=2+Math.floor(Math.random()*3);
+    const idx=[0,1,2,3,4,5].sort(()=>Math.random()-0.5).slice(0,na);
+    idx.forEach(i=>this.aislesToVisit.push(Store.aisles[i]));
+    this.ai=0; this.timer=0; this.payTime=3+Math.random()*2; this.co=null; this.target=null;
+  }
+  moveTo(tx,tz,dt,sp=3){
+    const dx=tx-this.x,dz=tz-this.z,d=Math.hypot(dx,dz);
+    if(d<0.4) return true;
+    const nx=this.x+dx/d*sp*dt, nz=this.z+dz/d*sp*dt;
+    if(!Store.blocked(nx,this.z,0.6)) this.x=nx; else if(!Store.blocked(nx,this.z+0.5,0.6)) this.z+=0.5;
+    if(!Store.blocked(this.x,nz,0.6)) this.z=nz;
+    this.mesh.rotation.y=Math.atan2(-dx,-dz)+Math.PI;
+    const t=performance.now()*0.012;
+    this.mesh.userData.armL.rotation.x=Math.sin(t)*0.5;
+    this.mesh.userData.armR.rotation.x=-Math.sin(t)*0.5;
+    return false;
+  }
+  update(dt){
+    this.timer+=dt;
+    switch(this.state){
+      case 'ENTRER':
+        if(this.moveTo(0,Store.D/2-7,dt)) this.state='PRENDRE_CADDIE';
+        break;
+      case 'PRENDRE_CADDIE':
+        if(this.moveTo(-7,Store.D/2-5,dt)){ this.state='FAIRE_COURSES'; this.ai=0; }
+        break;
+      case 'FAIRE_COURSES': {
+        if(this.ai>=this.aislesToVisit.length){ this.chooseCheckout(); break; }
+        const a=this.aislesToVisit[this.ai];
+        if(this.moveTo(a.x,a.z+(this.ai%2?2:-2),dt)){
+          if(this.timer>1.2){ this.ai++; this.timer=0; }
+        }
+        break; }
+      case 'FAIRE_LA_QUEUE': {
+        const pos=this.co.queue.indexOf(this);
+        const tz=this.co.queueZbase+pos*1.6;
+        if(this.moveTo(this.co.x+2.2,tz,dt)){
+          if(pos===0){ this.state='PAYER'; this.timer=0; }
+        }
+        break; }
+      case 'PAYER':
+        if(this.timer>this.payTime){
+          Economy.sell(this.basket);
+          const i=this.co.queue.indexOf(this); if(i>=0) this.co.queue.splice(i,1);
+          this.state='SORTIR';
+        }
+        break;
+      case 'SORTIR':
+        if(this.moveTo(0,Store.D/2-1,dt)) this.dead=true;
+        break;
+    }
+    this.mesh.position.x=this.x; this.mesh.position.z=this.z;
+  }
+  chooseCheckout(){
+    let best=Store.checkouts[0];
+    Store.checkouts.forEach(c=>{ if(c.queue.length<best.queue.length) best=c; });
+    this.co=best; best.queue.push(this); this.state='FAIRE_LA_QUEUE';
+  }
+}
+
+/* ============================ Cameras ============================ */
+const CameraManager={
+  cam:null, mode:0, surfIndex:0,
+  modes:['3e personne','1re personne','Vue de dessus','Surveillance'],
+  surfCams:[
+    {name:'Entrée',pos:[0,7,Store.D/2-3],look:[0,1,0]},
+    {name:'Vue générale',pos:[0,30,25],look:[0,0,0]},
+    {name:'Caisse 1',pos:[-9,6,Store.D/2-8],look:[-9,1,Store.D/2-13]},
+    {name:'Caisse 2',pos:[0,6,Store.D/2-8],look:[0,1,Store.D/2-13]},
+    {name:'Caisse 3',pos:[9,6,Store.D/2-8],look:[9,1,Store.D/2-13]},
+    {name:'Réserve',pos:[-17,7,-20],look:[-15,1,-22]},
+    {name:'Quai livraison',pos:[0,7,-22],look:[0,1,-30]},
+  ],
+  init(){ this.cam=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,500);
+    this.update(0); },
+  cycle(){ this.mode=(this.mode+1)%4; this.refreshLabel(); Store.roof.visible=(this.mode!==2); },
+  setSurveillance(i){ this.mode=3; this.surfIndex=i; this.refreshLabel(); Store.roof.visible=true; },
+  refreshLabel(){ let t=this.modes[this.mode];
+    if(this.mode===3) t+=' — '+this.surfCams[this.surfIndex].name;
+    document.getElementById('camLabel').textContent='Caméra: '+t; },
+  update(dt){
+    const p=Player.mesh.position;
+    if(this.mode===0){ // third person
+      const cx=p.x+Math.sin(Player.angle)*8, cz=p.z+Math.cos(Player.angle)*8;
+      this.cam.position.lerp(new THREE.Vector3(cx,7,cz),0.15);
+      this.cam.lookAt(p.x,2,p.z);
+    } else if(this.mode===1){ // first person
+      this.cam.position.set(p.x-Math.sin(Player.angle)*0.3,2.2,p.z-Math.cos(Player.angle)*0.3);
+      this.cam.lookAt(p.x-Math.sin(Player.angle)*5,2,p.z-Math.cos(Player.angle)*5);
+    } else if(this.mode===2){ // top down
+      this.cam.position.set(p.x,45,p.z+0.01);
+      this.cam.lookAt(p.x,0,p.z);
+    } else { // surveillance
+      const s=this.surfCams[this.surfIndex];
+      this.cam.position.set(...s.pos); this.cam.lookAt(...s.look);
+    }
+  }
+};
+
+/* ============================ UI ============================ */
+const keys={};
+let panelOpen=false, salesCheckout=null;
+const hint=document.getElementById('hint');
+let nearest=null;
+
+const UI={
+  init(){
+    // panel tabs
+    document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      document.querySelectorAll('.tabcontent').forEach(x=>x.classList.remove('active'));
+      t.classList.add('active');
+      document.getElementById('tab-'+t.dataset.tab).classList.add('active');
+    }));
+    document.getElementById('panelClose').onclick=()=>this.closePanel();
+    document.getElementById('salesClose').onclick=()=>{document.getElementById('sales').classList.remove('show');salesCheckout=null;};
+    document.getElementById('empCardClose').onclick=()=>document.getElementById('empCard').classList.remove('show');
+  },
+  openPanel(){ panelOpen=true; document.getElementById('panel').classList.add('show'); this.renderPanel(); },
+  closePanel(){ panelOpen=false; document.getElementById('panel').classList.remove('show'); },
+  renderPanel(){
+    // STATS
+    const maxSale=Math.max(1,...Economy.catSales);
+    document.getElementById('tab-stats').innerHTML=`
+      <div class="row"><span>Recette du jour</span><b>${Economy.revenueToday} DA</b></div>
+      <div class="row"><span>Clients servis</span><b>${Economy.customersServed}</b></div>
+      <div class="row"><span>Meilleure vente</span><b>${Economy.bestSeller()}</b></div>
+      <div class="row"><span>Capital total</span><b>${Economy.money} DA</b></div>
+      <div class="chartbar">${Economy.categories.map((c,i)=>`
+        <div class="cb"><div class="fill" style="height:${Economy.catSales[i]/maxSale*100}%"></div>
+        <span>${c}<br>${Economy.catSales[i]}</span></div>`).join('')}</div>`;
+    // STOCK
+    document.getElementById('tab-stock').innerHTML=Economy.categories.map(c=>{
+      const pend=Economy.pendingOrders.find(o=>o.cat===c);
+      return `<div class="row"><span style="width:130px">${c}</span>
+        <div class="bar"><div style="width:${Economy.stock[c]}%"></div></div>
+        <span style="width:42px">${Math.round(Economy.stock[c])}%</span>
+        ${pend?`<span class="small">livraison ${Math.ceil(pend.time)}s</span>`
+        :`<button class="btn" data-order="${c}">Commander 4000 DA</button>`}</div>`;
+    }).join('');
+    document.querySelectorAll('[data-order]').forEach(b=>b.onclick=()=>{
+      if(Economy.order(b.dataset.order)) this.renderPanel(); else alert('Pas assez de DA !');
+    });
+    // EMPLOYÉS
+    document.getElementById('tab-emp').innerHTML=employees.map((e,i)=>`
+      <div class="row"><span style="width:90px"><b>${e.name}</b></span>
+      <span style="width:140px">${e.role}</span>
+      <span style="width:90px;color:${e.replaced?'#ff8a65':'#9ccc65'}">${e.replaced?'Remplacé':e.status}</span>
+      <span style="width:90px">${e.salary} DA/j</span>
+      <button class="btn ${e.replaced?'warn':'alt'}" data-emp="${i}">${e.replaced?'Rendre':'Remplacer'}</button></div>`).join('');
+    document.querySelectorAll('[data-emp]').forEach(b=>b.onclick=()=>{
+      const e=employees[+b.dataset.emp]; e.replaced=!e.replaced;
+      Player.role=e.replaced?e.role:null; this.renderPanel();
+    });
+    // CAMÉRAS
+    document.getElementById('tab-cam').innerHTML=`<div class="camGrid">${
+      CameraManager.surfCams.map((s,i)=>`<div class="camThumb" data-cam="${i}">
+      <span class="rec">● REC</span>📷<br>${s.name}</div>`).join('')}</div>`;
+    document.querySelectorAll('[data-cam]').forEach(b=>b.onclick=()=>{
+      CameraManager.setSurveillance(+b.dataset.cam); this.closePanel();
+    });
+  },
+  openSales(co){
+    salesCheckout=co;
+    document.getElementById('sales').classList.add('show');
+    this.renderSales();
+  },
+  renderSales(){
+    if(!salesCheckout){return;}
+    const q=salesCheckout.queue;
+    const body=document.getElementById('salesBody');
+    if(q.length===0){ body.innerHTML='<p>Aucun client en attente. Attendez les clients.</p>'; return; }
+    const c=q[0];
+    body.innerHTML=`<p>Client en caisse, panier de <b>${c.basket.length}</b> articles:</p>
+      <div style="margin:8px 0">${c.basket.map(p=>`${p} — ${Economy.prices[p]} DA`).join('<br>')}</div>
+      <div class="row"><b>Total: ${c.basket.reduce((s,p)=>s+Economy.prices[p],0)} DA</b>
+      <button class="btn" id="scanBtn">Encaisser</button></div>`;
+    document.getElementById('scanBtn').onclick=()=>{
+      Economy.sell(c.basket);
+      const i=salesCheckout.queue.indexOf(c); if(i>=0) salesCheckout.queue.splice(i,1);
+      c.state='SORTIR'; this.renderSales();
+    };
+  },
+  showEmpCard(e){
+    document.getElementById('empCard').classList.add('show');
+    document.getElementById('empCardTitle').textContent='👤 '+e.name;
+    document.getElementById('empCardBody').innerHTML=`
+      <div class="row"><span>Poste</span><b>${e.role}</b></div>
+      <div class="row"><span>Statut</span><b>${e.replaced?'Remplacé par vous':e.status}</b></div>
+      <div class="row"><span>Salaire</span><b>${e.salary} DA/jour</b></div>`;
+  },
+  updateHUD(){
+    document.getElementById('hudMoney').textContent=Math.round(Economy.money);
+    document.getElementById('hudStock').textContent=Economy.avgStock();
+    document.getElementById('hudClients').textContent=customers.length;
+    document.getElementById('hudTime').textContent=GameTime.str();
+  }
+};
+
+/* ============================ Minimap ============================ */
+const mmCanvas=document.getElementById('minimap'), mmCtx=mmCanvas.getContext('2d');
+function drawMinimap(){
+  const W=150,H=150; mmCtx.clearRect(0,0,W,H);
+  mmCtx.fillStyle='#1a1a22'; mmCtx.fillRect(0,0,W,H);
+  const sx=W/Store.W, sz=H/Store.D;
+  const tx=x=> (x+Store.W/2)*sx;
+  const tz=z=> (z+Store.D/2)*sz;
+  // shelves
+  mmCtx.fillStyle='#444';
+  Store.aisles.forEach(a=>mmCtx.fillRect(tx(a.x)-6,tz(a.z)-3,12,6));
+  // checkouts
+  mmCtx.fillStyle='#37474f';
+  Store.checkouts.forEach(c=>mmCtx.fillRect(tx(c.x)-2,tz(c.z)-5,4,10));
+  // employees
+  employees.forEach(e=>{ if(e.replaced)return; mmCtx.fillStyle='#'+e.color.toString(16).padStart(6,'0');
+    mmCtx.beginPath(); mmCtx.arc(tx(e.x),tz(e.z),3,0,7); mmCtx.fill(); });
+  // customers
+  mmCtx.fillStyle='#ffffff';
+  customers.forEach(c=>{ mmCtx.beginPath(); mmCtx.arc(tx(c.x),tz(c.z),2.2,0,7); mmCtx.fill(); });
+  // player
+  mmCtx.fillStyle='#ffc107';
+  mmCtx.beginPath(); mmCtx.arc(tx(Player.x),tz(Player.z),4,0,7); mmCtx.fill();
+}
+
+/* ============================ Interaction ============================ */
+function findNearest(){
+  let best=null,bd=2;
+  for(const it of Store.interactables){
+    const d=Math.hypot(it.x-Player.x,it.z-Player.z);
+    if(d<bd){ bd=d; best={kind:'inter',data:it}; }
+  }
+  for(const e of employees){
+    if(e.replaced)continue;
+    const d=Math.hypot(e.x-Player.x,e.z-Player.z);
+    if(d<bd){ bd=d; best={kind:'emp',data:e}; }
+  }
+  return best;
+}
+function doInteract(){
+  if(!nearest) return;
+  if(nearest.kind==='emp'){ UI.showEmpCard(nearest.data); return; }
+  const it=nearest.data;
+  switch(it.type){
+    case 'checkout': UI.openSales(it.checkout); break;
+    case 'computer': UI.openPanel(); break;
+    case 'delivery': UI.openPanel();
+      document.querySelector('[data-tab="stock"]').click(); break;
+    case 'shelf':
+      // restock animation + small boost
+      Economy.stock[it.cat]=clamp(Economy.stock[it.cat]+10,0,100);
+      flashHint('Rayon '+it.cat+' rempli !'); break;
+    case 'cart': flashHint('Caddies disponibles'); break;
+  }
+}
+let hintFlash=0;
+function flashHint(msg){ hint.textContent=msg; hint.style.opacity=1; hintFlash=2; }
+
+/* ============================ Input ============================ */
+window.addEventListener('keydown',e=>{
+  keys[e.key]=true;
+  if(e.key==='e'||e.key==='E') doInteract();
+  if(e.key==='c'||e.key==='C') CameraManager.cycle();
+  if(e.key==='Escape'){ if(panelOpen) UI.closePanel(); else UI.openPanel(); }
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
+});
+window.addEventListener('keyup',e=>{ keys[e.key]=false; });
+window.addEventListener('resize',()=>{
+  renderer.setSize(innerWidth,innerHeight);
+  CameraManager.cam.aspect=innerWidth/innerHeight; CameraManager.cam.updateProjectionMatrix();
+});
+
+/* ============================ Doors animation ============================ */
+function updateDoors(dt){
+  let open=false;
+  if(Player.z>Store.D/2-10) open=true;
+  customers.forEach(c=>{ if(c.z>Store.D/2-9 && (c.state==='ENTRER'||c.state==='SORTIR')) open=true; });
+  const tgt=open?4:2;
+  Store.doorL.position.x += (-tgt - Store.doorL.position.x)*Math.min(1,dt*4);
+  Store.doorR.position.x += (tgt - Store.doorR.position.x)*Math.min(1,dt*4);
+}
+
+/* ============================ Spawning ============================ */
+function updateSpawning(dt){
+  spawnTimer+=dt;
+  if(spawnTimer>nextSpawn && customers.length<8){
+    customers.push(new Customer());
+    spawnTimer=0; nextSpawn=8+Math.random()*4;
+  }
+  for(let i=customers.length-1;i>=0;i--){
+    customers[i].update(dt);
+    if(customers[i].dead){ scene.remove(customers[i].mesh); customers.splice(i,1); }
+  }
+}
+
+/* ============================ Main loop ============================ */
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(0.05,clock.getDelta());
+  if(!panelOpen){
+    Player.update(dt,keys);
+    employees.forEach(e=>e.update(dt));
+    updateSpawning(dt);
+    updateDoors(dt);
+    GameTime.update(dt);
+    Economy.update(dt);
+  }
+  CameraManager.update(dt);
+  // hint
+  nearest=findNearest();
+  if(hintFlash>0){ hintFlash-=dt; if(hintFlash<=0) hint.style.opacity=0; }
+  else if(nearest && !panelOpen){
+    hint.textContent='E — '+(nearest.kind==='emp'?('Voir '+nearest.data.name):nearest.data.label);
+    hint.style.opacity=1;
+  } else hint.style.opacity=0;
+  // live sales refresh
+  if(salesCheckout && document.getElementById('sales').classList.contains('show')) UI.renderSales();
+  UI.updateHUD();
+  drawMinimap();
+  renderer.render(scene,CameraManager.cam);
+}
+
+/* ============================ Init ============================ */
+function init(){
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x87a7c0);
+  scene.fog=new THREE.Fog(0x87a7c0,80,160);
+  renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+  renderer.setSize(innerWidth,innerHeight);
+  renderer.setPixelRatio(Math.min(2,devicePixelRatio));
+  renderer.shadowMap.enabled=true;
+  clock=new THREE.Clock();
+  Store.build();
+  Player.build();
+  buildEmployees();
+  CameraManager.init();
+  UI.init();
+  CameraManager.refreshLabel();
+  document.getElementById('loading').style.display='none';
+  // initial customers
+  for(let i=0;i<3;i++) customers.push(new Customer());
+  animate();
+}
+init();
+</script>
+</body>
+</html>
